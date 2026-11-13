@@ -1,0 +1,1 @@
+This app is a simple program that lets you play rock, paper, scissors against a computer

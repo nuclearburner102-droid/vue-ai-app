@@ -1,7 +1,7 @@
 <template>
   <div class="rps">
     <h1>Rock Paper Scissors</h1>
-    <p class="subtitle">Play against the computer</p>
+    <p class="subtitle">First to 5 wins · Keys: 1 Rock · 2 Paper · 3 Scissors · Space Reset</p>
 
     <div class="scoreboard">
       <div class="score-item">
@@ -23,7 +23,7 @@
         v-for="choice in choices"
         :key="choice.name"
         class="choice-btn"
-        :disabled="isThinking"
+        :disabled="isThinking || matchOver"
         @click="play(choice.name)"
       >
         <span class="choice-emoji">{{ choice.emoji }}</span>
@@ -32,7 +32,13 @@
     </div>
 
     <div class="result-area">
-      <template v-if="playerChoice">
+      <template v-if="matchOver">
+        <div class="match-winner" :class="matchWinner">
+          {{ matchWinner === 'player' ? 'You won the match!' : 'Computer won the match!' }}
+        </div>
+        <p class="hint">Press Space or click Reset to play again</p>
+      </template>
+      <template v-else-if="playerChoice">
         <div class="hands">
           <span>{{ emojiFor(playerChoice) }}</span>
           <span class="vs">vs</span>
@@ -45,7 +51,7 @@
 
     <button
       class="reset-btn"
-      :disabled="playerScore === 0 && computerScore === 0 && ties === 0"
+      :disabled="playerScore === 0 && computerScore === 0 && ties === 0 && !matchOver"
       @click="resetScore"
     >
       Reset Score
@@ -54,13 +60,15 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 const choices = [
   { name: 'Rock', emoji: '🪨' },
   { name: 'Paper', emoji: '📄' },
   { name: 'Scissors', emoji: '✂️' },
 ]
+
+const WIN_SCORE = 5
 
 const playerScore = ref(0)
 const computerScore = ref(0)
@@ -70,6 +78,8 @@ const playerChoice = ref(null)
 const computerChoice = ref(null)
 const result = ref(null) // 'win' | 'lose' | 'tie'
 const isThinking = ref(false)
+const matchOver = ref(false)
+const matchWinner = ref(null) // 'player' | 'computer'
 
 const emojiFor = (name) => {
   const found = choices.find((c) => c.name === name)
@@ -95,8 +105,18 @@ const getWinner = (player, computer) => {
   return 'lose'
 }
 
+const checkMatchWinner = () => {
+  if (playerScore.value >= WIN_SCORE) {
+    matchOver.value = true
+    matchWinner.value = 'player'
+  } else if (computerScore.value >= WIN_SCORE) {
+    matchOver.value = true
+    matchWinner.value = 'computer'
+  }
+}
+
 const play = (choice) => {
-  if (isThinking.value) return
+  if (isThinking.value || matchOver.value) return
 
   isThinking.value = true
   playerChoice.value = choice
@@ -114,6 +134,7 @@ const play = (choice) => {
     else if (outcome === 'lose') computerScore.value++
     else ties.value++
 
+    checkMatchWinner()
     isThinking.value = false
   }, 400)
 }
@@ -125,7 +146,34 @@ const resetScore = () => {
   playerChoice.value = null
   computerChoice.value = null
   result.value = null
+  matchOver.value = false
+  matchWinner.value = null
 }
+
+const handleKeydown = (e) => {
+  // Ignore if user is typing in an input/textarea
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+
+  if (e.code === 'Space') {
+    e.preventDefault()
+    resetScore()
+    return
+  }
+
+  if (matchOver.value || isThinking.value) return
+
+  if (e.key === '1') play('Rock')
+  else if (e.key === '2') play('Paper')
+  else if (e.key === '3') play('Scissors')
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <style scoped>
@@ -148,8 +196,9 @@ h1 {
 .subtitle {
   text-align: center;
   color: #94a3b8;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   margin-bottom: 1.75rem;
+  line-height: 1.4;
 }
 
 .scoreboard {
@@ -255,6 +304,20 @@ h1 {
 
 .outcome.tie {
   color: #eab308;
+}
+
+.match-winner {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.match-winner.player {
+  color: #22c55e;
+}
+
+.match-winner.computer {
+  color: #ef4444;
 }
 
 .hint {
